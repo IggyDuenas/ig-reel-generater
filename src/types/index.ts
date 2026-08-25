@@ -278,7 +278,8 @@ export interface Club {
   finances: ClubFinances;
   manager: Manager;
   playerIds: string[];
-  leagueId: string;
+  competitionId: string;
+  regionId: string;
   facilities: Facilities;
   identity: ClubIdentity;
 }
@@ -299,14 +300,38 @@ export interface Facilities {
   medical: number;
 }
 
-// ─── League ───────────────────────────────────────────────────────────────────
+// ─── Competition ──────────────────────────────────────────────────────────────
 
-export interface League {
+export interface Competition {
   id: string;
   name: string;
+  shortName: string;
   country: string;
-  division: number;
+  level: number;          // 1 = top flight, 4 = regional
+  type: 'league' | 'cup';
   clubIds: string[];
+  reputation: number;
+  promotionPlaces: number;
+  playoffPlaces: number;
+  relegationPlaces: number;
+  prizeMoneyWinner: number;
+}
+
+// ─── Region ───────────────────────────────────────────────────────────────────
+
+export interface Region {
+  id: string;
+  name: string;
+  description: string;
+}
+
+// ─── Rivalry ──────────────────────────────────────────────────────────────────
+
+export interface Rivalry {
+  clubAId: string;
+  clubBId: string;
+  intensity: number;  // 1-100
+  type: 'local' | 'historical' | 'ambition';
 }
 
 export interface LeagueTableEntry {
@@ -328,7 +353,7 @@ export type MatchOutcome = 'W' | 'D' | 'L';
 
 export interface Fixture {
   id: string;
-  leagueId: string;
+  competitionId: string;
   homeClubId: string;
   awayClubId: string;
   date: string;
@@ -352,7 +377,9 @@ export interface GameState {
   playerClubId: string;
   clubs: Record<string, Club>;
   players: Record<string, Player>;
-  leagues: Record<string, League>;
+  competitions: Record<string, Competition>;
+  regions: Record<string, Region>;
+  rivalries: Rivalry[];
   fixtures: Fixture[];
   leagueTable: Record<string, LeagueTableEntry>;
   news: NewsItem[];

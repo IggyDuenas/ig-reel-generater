@@ -82,7 +82,7 @@ export default function Dashboard({ gameState, onSelectPlayer, onSelectClub }: P
         <div className="card dash-table-card">
           <div className="card-header">
             <h3>League Table</h3>
-            <span className="text-muted text-sm">{gameState.leagues['league_valsoria']?.name}</span>
+            <span className="text-muted text-sm">{gameState.competitions[gameState.clubs[gameState.playerClubId]?.competitionId]?.name}</span>
           </div>
           <div className="overflow-auto">
             <table className="data-table">
