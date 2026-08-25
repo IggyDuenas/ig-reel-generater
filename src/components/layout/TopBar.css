@@ -1,0 +1,44 @@
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  height: var(--header-h);
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-soft);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  gap: 16px;
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.topbar-club {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.topbar-sep {
+  color: var(--txt-muted);
+}
+
+.topbar-date {
+  font-size: 0.85rem;
+  color: var(--txt-secondary);
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.topbar-btn {
+  padding: 6px 14px;
+  font-size: 0.8rem;
+}
