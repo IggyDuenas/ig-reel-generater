@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { GameState } from '../../types';
 import { formatDate, formatWage, contractStatus, abilityLabel, abilityColor, moraleLabel, moraleColor, fitnessColor, attrColor } from '../../utils';
+import { formatValsorian } from '../../utils/calculations';
 import './PlayerProfile.css';
 
 interface Props {
@@ -9,7 +10,7 @@ interface Props {
   onBack: () => void;
 }
 
-type Tab = 'overview' | 'attributes' | 'contract' | 'career';
+type Tab = 'overview' | 'attributes' | 'positions' | 'contract' | 'career';
 
 function AttrRow({ label, value }: { label: string; value: number }) {
   return (
@@ -58,6 +59,9 @@ export default function PlayerProfile({ gameState, playerId, onBack }: Props) {
     ['Heading', a.technical.heading],
     ['Long Shots', a.technical.longShots],
     ['Technique', a.technical.technique],
+    ['Free Kicks', a.technical.freeKicks],
+    ['Corners', a.technical.corners],
+    ['Penalties', a.technical.penalties],
   ];
 
   const mentalAttrs: [string, number][] = [
@@ -72,6 +76,7 @@ export default function PlayerProfile({ gameState, playerId, onBack }: Props) {
     ['Teamwork', a.mental.teamwork],
     ['Leadership', a.mental.leadership],
     ['Aggression', a.mental.aggression],
+    ['Off the Ball', a.mental.offTheBall],
   ];
 
   const physAttrs: [string, number][] = [
@@ -93,6 +98,8 @@ export default function PlayerProfile({ gameState, playerId, onBack }: Props) {
     ['Aerial Ability', a.goalkeeper.aerialAbility],
     ['Kicking', a.goalkeeper.kicking],
     ['Throwing', a.goalkeeper.throwing],
+    ['Communication', a.goalkeeper.communication],
+    ['Sweeper Ability', a.goalkeeper.sweeperAbility],
   ];
 
   return (
@@ -142,6 +149,18 @@ export default function PlayerProfile({ gameState, playerId, onBack }: Props) {
             <span className="pp-stat-label">Reputation</span>
             <span className="pp-stat-val">{player.reputation}</span>
           </div>
+          {player.marketValue != null && (
+            <div className="pp-stat">
+              <span className="pp-stat-label">Market Value</span>
+              <span className="pp-stat-val text-accent">{formatValsorian(player.marketValue)}</span>
+            </div>
+          )}
+          {player.personality && (
+            <div className="pp-stat">
+              <span className="pp-stat-label">Personality</span>
+              <span className="pp-stat-val">{player.personality}</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -178,9 +197,9 @@ export default function PlayerProfile({ gameState, playerId, onBack }: Props) {
 
       {/* Tabs */}
       <div className="tab-bar mt-16">
-        {(['overview','attributes','contract','career'] as Tab[]).map((t) => (
+        {(['overview','attributes','positions','contract','career'] as Tab[]).map((t) => (
           <button key={t} className={`tab-btn${tab === t ? ' active' : ''}`} onClick={() => setTab(t)}>
-            {t.charAt(0).toUpperCase() + t.slice(1)}
+            {t === 'positions' ? 'Positions' : t.charAt(0).toUpperCase() + t.slice(1)}
           </button>
         ))}
       </div>
@@ -198,6 +217,7 @@ export default function PlayerProfile({ gameState, playerId, onBack }: Props) {
               <InfoRow label="Height" value={`${player.height} cm`} />
               <InfoRow label="Weight" value={`${player.weight} kg`} />
               <InfoRow label="Preferred Foot" value={player.preferredFoot} />
+              {player.personality && <InfoRow label="Personality" value={player.personality} />}
             </div>
           </div>
           <div className="card">
@@ -205,9 +225,11 @@ export default function PlayerProfile({ gameState, playerId, onBack }: Props) {
             <div className="info-rows">
               <InfoRow label="Position" value={player.position} />
               <InfoRow label="Secondary Positions" value={player.secondaryPositions.join(', ') || 'None'} />
+              {player.preferences?.preferredRole && <InfoRow label="Preferred Role" value={player.preferences.preferredRole} />}
               <InfoRow label="Squad Status" value={player.contract.squadStatus} />
               <InfoRow label="Current Ability" value={`${player.currentAbility} (${abilityLabel(player.currentAbility)})`} />
               <InfoRow label="Potential Ability" value={`${player.potentialAbility}`} />
+              {player.marketValue != null && <InfoRow label="Market Value" value={formatValsorian(player.marketValue)} />}
               <InfoRow label="Club" value={club?.name || 'Free Agent'} />
             </div>
           </div>
@@ -220,6 +242,31 @@ export default function PlayerProfile({ gameState, playerId, onBack }: Props) {
           <AttrGroup title="Mental" attrs={mentalAttrs} />
           <AttrGroup title="Physical" attrs={physAttrs} />
           {player.position === 'GK' && <AttrGroup title="Goalkeeping" attrs={gkAttrs} />}
+        </div>
+      )}
+
+      {tab === 'positions' && (
+        <div className="card" style={{ maxWidth: 480 }}>
+          <h3 className="mb-12">Position Abilities</h3>
+          {player.positionAbilities && Object.keys(player.positionAbilities).length > 0 ? (
+            <div>
+              {(Object.entries(player.positionAbilities) as [string, number][])
+                .sort((a, b) => b[1] - a[1])
+                .map(([pos, ca]) => (
+                  <div key={pos} className="attr-row" style={{ marginBottom: 8 }}>
+                    <span className="attr-label" style={{ width: 56, fontWeight: pos === player.position ? 700 : 400, color: pos === player.position ? 'var(--accent)' : undefined }}>{pos}</span>
+                    <div className="attr-bar-wrap">
+                      <div className="bar-track" style={{ width: '100%' }}>
+                        <div className="bar-fill" style={{ width: `${ca}%`, background: abilityColor(ca) }} />
+                      </div>
+                      <span className="attr-val" style={{ color: abilityColor(ca) }}>{ca}</span>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          ) : (
+            <p className="text-muted text-sm">Position ability data not available.</p>
+          )}
         </div>
       )}
 
@@ -237,7 +284,7 @@ export default function PlayerProfile({ gameState, playerId, onBack }: Props) {
       )}
 
       {tab === 'career' && (
-        <div className="grid-2 gap-16">
+        <div className="flex-col gap-16">
           <div className="card">
             <h3 className="mb-12">Career Statistics</h3>
             {player.careerStats ? (
@@ -255,13 +302,35 @@ export default function PlayerProfile({ gameState, playerId, onBack }: Props) {
               <p className="text-muted text-sm">No career data available.</p>
             )}
           </div>
-          <div className="card">
-            <div className="placeholder-section p-0" style={{ paddingTop: 40, paddingBottom: 40 }}>
-              <div className="ph-icon">📈</div>
-              <h3>Development Tracking</h3>
-              <p>Attribute progression, training history, and season statistics will be available in a future update.</p>
+          {player.careerStats?.history && player.careerStats.history.length > 0 && (
+            <div className="card">
+              <h3 className="mb-12">Club History</h3>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Club</th>
+                    <th>Season</th>
+                    <th>Apps</th>
+                    <th>Gls</th>
+                    <th>Ast</th>
+                    <th>Rat</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {player.careerStats.history.map((h, i) => (
+                    <tr key={i}>
+                      <td style={{ fontWeight: 500 }}>{h.clubName}</td>
+                      <td className="text-muted">{h.seasonStart}/{h.seasonEnd.slice(2)}</td>
+                      <td>{h.appearances}</td>
+                      <td>{h.goals}</td>
+                      <td>{h.assists}</td>
+                      <td style={{ color: h.averageRating >= 7 ? 'var(--clr-good)' : h.averageRating >= 6 ? 'var(--clr-avg)' : 'var(--clr-poor)' }}>{h.averageRating.toFixed(1)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          </div>
+          )}
         </div>
       )}
     </div>

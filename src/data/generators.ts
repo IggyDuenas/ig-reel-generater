@@ -1,396 +1,358 @@
 import type {
-  Player,
-  PlayerAttributes,
-  Position,
-  SquadStatus,
-  Foot,
-  CareerStats,
+  Player, PlayerAttributes, Position, SquadStatus, Foot,
+  CareerStats, HiddenCharacteristics,
+  PreferredRole,
 } from '../types';
+import {
+  calculateAllPositionAbilities,
+  calculatePositionAbility,
+  calculatePotentialAbility,
+  calculateMarketValue,
+  calculateReputation,
+  derivePersonality,
+  calculateDevelopmentRate,
+} from '../utils/calculations';
+
+// ─── Seeded-style ID counter ──────────────────────────────────────────────────
 
 let _playerIdCounter = 1;
 export function nextPlayerId(): string {
   return `player_${String(_playerIdCounter++).padStart(4, '0')}`;
 }
+export function resetPlayerIdCounter(): void { _playerIdCounter = 1; }
+
+// ─── Math helpers ─────────────────────────────────────────────────────────────
 
 function clamp(v: number, min = 1, max = 100): number {
   return Math.max(min, Math.min(max, Math.round(v)));
 }
 
+function gauss(mean: number, stddev: number): number {
+  // Box-Muller approximation
+  let u = 0, v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  const z = Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  return mean + z * stddev;
+}
+
 function rng(base: number, spread: number): number {
-  return clamp(base + (Math.random() - 0.5) * spread * 2);
+  return clamp(gauss(base, spread));
 }
 
-// ─── Attribute template generators ───────────────────────────────────────────
+// ─── Archetype definitions ────────────────────────────────────────────────────
+// Each archetype defines multipliers applied to the base quality for each attribute.
+// 1.0 = attribute tracks quality exactly; 1.15 = stronger; 0.5 = much weaker.
 
-function gkAttributes(quality: number): PlayerAttributes {
+type AttrMultipliers = {
+  // Technical
+  passing?: number; firstTouch?: number; dribbling?: number; finishing?: number;
+  crossing?: number; tackling?: number; marking?: number; heading?: number;
+  longShots?: number; technique?: number; freeKicks?: number; corners?: number; penalties?: number;
+  // Mental
+  decisions?: number; vision?: number; composure?: number; concentration?: number;
+  anticipation?: number; positioning?: number; determination?: number; workRate?: number;
+  teamwork?: number; leadership?: number; aggression?: number; offTheBall?: number;
+  // Physical
+  pace?: number; acceleration?: number; strength?: number; stamina?: number;
+  agility?: number; balance?: number; jumping?: number; naturalFitness?: number;
+  // GK
+  reflexes?: number; handling?: number; oneOnOnes?: number; gkPositioning?: number;
+  aerialAbility?: number; kicking?: number; throwing?: number; communication?: number; sweeperAbility?: number;
+};
+
+interface Archetype {
+  role: PreferredRole;
+  mults: AttrMultipliers;
+}
+
+
+function getDefaultMult(key: string): number {
+  const gkKeys = ['reflexes','handling','oneOnOnes','gkPositioning','aerialAbility','kicking','throwing','communication','sweeperAbility'];
+  const physKeys = ['pace','acceleration','strength','stamina','agility','balance','jumping','naturalFitness'];
+  const mentalKeys = ['decisions','vision','composure','concentration','anticipation','positioning','determination','workRate','teamwork','leadership','aggression','offTheBall'];
+  if (gkKeys.includes(key)) return 0.18;
+  if (physKeys.includes(key)) return 0.65;
+  if (mentalKeys.includes(key)) return 0.68;
+  return 0.50;
+}
+
+const ARCHETYPES: Record<Position, Archetype[]> = {
+  GK: [
+    {
+      role: 'Traditional Goalkeeper',
+      mults: { reflexes: 1.15, handling: 1.10, gkPositioning: 1.10, oneOnOnes: 1.05,
+                aerialAbility: 1.0, communication: 0.95, sweeperAbility: 0.80,
+                kicking: 0.85, throwing: 0.85, decisions: 1.0, composure: 0.95 },
+    },
+    {
+      role: 'Sweeper Keeper',
+      mults: { reflexes: 1.05, handling: 1.00, gkPositioning: 1.05, oneOnOnes: 1.10,
+                aerialAbility: 0.95, communication: 1.05, sweeperAbility: 1.20,
+                kicking: 1.10, throwing: 1.05, pace: 0.75, decisions: 1.05 },
+    },
+  ],
+  CB: [
+    {
+      role: 'No-Nonsense Defender',
+      mults: { tackling: 1.15, marking: 1.12, heading: 1.12, strength: 1.10, jumping: 1.10,
+                concentration: 1.08, positioning: 1.05, anticipation: 1.02,
+                aggression: 1.05, passing: 0.60, technique: 0.55, vision: 0.50, pace: 0.75 },
+    },
+    {
+      role: 'Ball-Playing Defender',
+      mults: { tackling: 1.05, marking: 1.00, heading: 0.95, passing: 1.10, technique: 1.08,
+                vision: 1.05, composure: 1.08, decisions: 1.05, firstTouch: 1.05,
+                strength: 0.90, jumping: 0.90, concentration: 1.05, positioning: 1.05 },
+    },
+    {
+      role: 'Ball-Playing Defender',
+      mults: { anticipation: 1.12, positioning: 1.12, pace: 1.00, acceleration: 1.00,
+                tackling: 1.02, marking: 0.98, heading: 1.00, concentration: 1.08,
+                composure: 1.08, decisions: 1.08, passing: 1.05, technique: 1.05, vision: 1.00 },
+    },
+  ],
+  LB: [
+    {
+      role: 'Defensive Full Back',
+      mults: { tackling: 1.10, marking: 1.08, crossing: 0.85, pace: 1.00, acceleration: 1.00,
+                stamina: 1.05, positioning: 1.05, workRate: 1.08, concentration: 1.05,
+                passing: 0.80, dribbling: 0.70, offTheBall: 0.75 },
+    },
+    {
+      role: 'Attacking Full Back',
+      mults: { crossing: 1.15, pace: 1.08, acceleration: 1.08, stamina: 1.05,
+                dribbling: 1.00, passing: 1.00, offTheBall: 1.05, agility: 1.05,
+                tackling: 0.88, marking: 0.85, workRate: 1.05 },
+    },
+  ],
+  RB: [
+    {
+      role: 'Defensive Full Back',
+      mults: { tackling: 1.10, marking: 1.08, crossing: 0.85, pace: 1.00, acceleration: 1.00,
+                stamina: 1.05, positioning: 1.05, workRate: 1.08, concentration: 1.05,
+                passing: 0.80, dribbling: 0.70, offTheBall: 0.75 },
+    },
+    {
+      role: 'Attacking Full Back',
+      mults: { crossing: 1.15, pace: 1.08, acceleration: 1.08, stamina: 1.05,
+                dribbling: 1.00, passing: 1.00, offTheBall: 1.05, agility: 1.05,
+                tackling: 0.88, marking: 0.85, workRate: 1.05 },
+    },
+  ],
+  LWB: [
+    {
+      role: 'Attacking Full Back',
+      mults: { crossing: 1.15, pace: 1.10, acceleration: 1.10, dribbling: 1.05,
+                stamina: 1.08, offTheBall: 1.05, agility: 1.08, passing: 0.95,
+                tackling: 0.88, marking: 0.82, workRate: 1.08 },
+    },
+  ],
+  RWB: [
+    {
+      role: 'Attacking Full Back',
+      mults: { crossing: 1.15, pace: 1.10, acceleration: 1.10, dribbling: 1.05,
+                stamina: 1.08, offTheBall: 1.05, agility: 1.08, passing: 0.95,
+                tackling: 0.88, marking: 0.82, workRate: 1.08 },
+    },
+  ],
+  DM: [
+    {
+      role: 'Ball-Winning Midfielder',
+      mults: { tackling: 1.15, marking: 1.10, aggression: 1.08, strength: 1.08,
+                workRate: 1.10, concentration: 1.08, positioning: 1.05, stamina: 1.08,
+                passing: 0.80, vision: 0.72, dribbling: 0.70, technique: 0.75 },
+    },
+    {
+      role: 'Defensive Midfielder',
+      mults: { tackling: 1.05, marking: 1.00, positioning: 1.12, concentration: 1.10,
+                teamwork: 1.08, passing: 1.05, decisions: 1.08, composure: 1.05,
+                workRate: 1.05, stamina: 1.05, vision: 0.90 },
+    },
+  ],
+  CM: [
+    {
+      role: 'Box-to-Box Midfielder',
+      mults: { stamina: 1.12, workRate: 1.10, passing: 1.05, teamwork: 1.08,
+                offTheBall: 1.08, decisions: 1.05, tackling: 0.95, finishing: 0.85,
+                vision: 0.95, technique: 1.00, naturalFitness: 1.10 },
+    },
+    {
+      role: 'Deep-Lying Playmaker',
+      mults: { passing: 1.15, vision: 1.12, technique: 1.10, decisions: 1.10,
+                firstTouch: 1.08, composure: 1.08, teamwork: 1.05, longShots: 1.00,
+                freeKicks: 1.05, tackling: 0.78, stamina: 0.90, workRate: 0.85 },
+    },
+  ],
+  LM: [
+    {
+      role: 'Wide Midfielder',
+      mults: { crossing: 1.12, dribbling: 1.05, pace: 1.08, acceleration: 1.08,
+                technique: 1.05, offTheBall: 1.05, stamina: 1.08, workRate: 1.05,
+                passing: 1.00, finishing: 0.80, tackling: 0.78 },
+    },
+  ],
+  RM: [
+    {
+      role: 'Wide Midfielder',
+      mults: { crossing: 1.12, dribbling: 1.05, pace: 1.08, acceleration: 1.08,
+                technique: 1.05, offTheBall: 1.05, stamina: 1.08, workRate: 1.05,
+                passing: 1.00, finishing: 0.80, tackling: 0.78 },
+    },
+  ],
+  AM: [
+    {
+      role: 'Advanced Playmaker',
+      mults: { vision: 1.15, passing: 1.12, technique: 1.10, decisions: 1.10,
+                offTheBall: 1.08, dribbling: 1.05, firstTouch: 1.08, composure: 1.05,
+                freeKicks: 1.05, finishing: 0.88, tackling: 0.62, workRate: 0.85 },
+    },
+    {
+      role: 'Inside Forward',
+      mults: { dribbling: 1.12, finishing: 1.10, pace: 1.08, acceleration: 1.08,
+                technique: 1.05, agility: 1.08, offTheBall: 1.05, composure: 1.05,
+                longShots: 1.05, vision: 0.90, passing: 0.90, workRate: 0.85 },
+    },
+  ],
+  LW: [
+    {
+      role: 'Winger',
+      mults: { pace: 1.15, acceleration: 1.15, dribbling: 1.12, agility: 1.10,
+                crossing: 1.08, technique: 1.05, offTheBall: 1.05, balance: 1.10,
+                finishing: 0.88, passing: 0.85, workRate: 0.90, tackling: 0.55 },
+    },
+    {
+      role: 'Inside Forward',
+      mults: { dribbling: 1.10, finishing: 1.12, pace: 1.10, acceleration: 1.08,
+                technique: 1.08, composure: 1.05, longShots: 1.08, agility: 1.05,
+                crossing: 0.80, workRate: 0.88, tackling: 0.55 },
+    },
+  ],
+  RW: [
+    {
+      role: 'Winger',
+      mults: { pace: 1.15, acceleration: 1.15, dribbling: 1.12, agility: 1.10,
+                crossing: 1.08, technique: 1.05, offTheBall: 1.05, balance: 1.10,
+                finishing: 0.88, passing: 0.85, workRate: 0.90, tackling: 0.55 },
+    },
+    {
+      role: 'Inside Forward',
+      mults: { dribbling: 1.10, finishing: 1.12, pace: 1.10, acceleration: 1.08,
+                technique: 1.08, composure: 1.05, longShots: 1.08, agility: 1.05,
+                crossing: 0.80, workRate: 0.88, tackling: 0.55 },
+    },
+  ],
+  ST: [
+    {
+      role: 'Complete Forward',
+      mults: { finishing: 1.15, composure: 1.12, offTheBall: 1.10, firstTouch: 1.08,
+                technique: 1.05, acceleration: 1.05, anticipation: 1.08,
+                dribbling: 1.00, heading: 0.95, strength: 0.95, longShots: 0.95, penalties: 1.05 },
+    },
+    {
+      role: 'Poacher',
+      mults: { finishing: 1.20, offTheBall: 1.15, anticipation: 1.12, composure: 1.10,
+                acceleration: 1.08, penalties: 1.10, firstTouch: 1.00,
+                strength: 0.80, heading: 0.80, dribbling: 0.80, workRate: 0.75, passing: 0.65 },
+    },
+    {
+      role: 'Target Man',
+      mults: { heading: 1.18, strength: 1.15, jumping: 1.15, finishing: 1.00,
+                composure: 1.00, firstTouch: 1.00, offTheBall: 1.05, aggression: 1.05,
+                pace: 0.78, acceleration: 0.78, dribbling: 0.80, technique: 0.85 },
+    },
+    {
+      role: 'Deep-Lying Forward',
+      mults: { passing: 1.10, vision: 1.08, technique: 1.08, firstTouch: 1.10,
+                offTheBall: 1.05, decisions: 1.08, composure: 1.05, finishing: 0.92,
+                strength: 0.90, pace: 0.90, heading: 0.80 },
+    },
+  ],
+};
+
+// ─── Attribute generation from archetype ─────────────────────────────────────
+
+function buildAttrs(quality: number, archetype: Archetype): PlayerAttributes {
+  const m = archetype.mults;
   const q = quality;
+
+  function a(key: string, extraSpread = 5): number {
+    const mult = (m as Record<string, number>)[key] ?? getDefaultMult(key);
+    return rng(q * mult, extraSpread);
+  }
+
   return {
     technical: {
-      passing: rng(q * 0.5, 8),
-      firstTouch: rng(q * 0.6, 8),
-      dribbling: rng(20, 6),
-      finishing: rng(12, 5),
-      crossing: rng(25, 8),
-      tackling: rng(15, 5),
-      marking: rng(20, 6),
-      heading: rng(q * 0.4, 8),
-      longShots: rng(15, 5),
-      technique: rng(q * 0.5, 8),
+      passing:    a('passing'),
+      firstTouch: a('firstTouch'),
+      dribbling:  a('dribbling'),
+      finishing:  a('finishing'),
+      crossing:   a('crossing'),
+      tackling:   a('tackling'),
+      marking:    a('marking'),
+      heading:    a('heading'),
+      longShots:  a('longShots'),
+      technique:  a('technique'),
+      freeKicks:  a('freeKicks'),
+      corners:    a('corners'),
+      penalties:  a('penalties'),
     },
     mental: {
-      decisions: rng(q * 0.85, 8),
-      vision: rng(q * 0.7, 8),
-      composure: rng(q * 0.85, 8),
-      concentration: rng(q * 0.9, 8),
-      anticipation: rng(q * 0.85, 8),
-      positioning: rng(q * 0.9, 8),
-      determination: rng(q * 0.8, 10),
-      workRate: rng(q * 0.7, 10),
-      teamwork: rng(q * 0.8, 8),
-      leadership: rng(q * 0.7, 12),
-      aggression: rng(30, 12),
+      decisions:     a('decisions'),
+      vision:        a('vision'),
+      composure:     a('composure'),
+      concentration: a('concentration'),
+      anticipation:  a('anticipation'),
+      positioning:   a('positioning'),
+      determination: a('determination', 8),
+      workRate:      a('workRate', 8),
+      teamwork:      a('teamwork', 6),
+      leadership:    a('leadership', 10),
+      aggression:    a('aggression', 10),
+      offTheBall:    a('offTheBall'),
     },
     physical: {
-      pace: rng(55, 15),
-      acceleration: rng(52, 15),
-      strength: rng(q * 0.7, 10),
-      stamina: rng(q * 0.7, 10),
-      agility: rng(q * 0.75, 10),
-      balance: rng(q * 0.75, 10),
-      jumping: rng(q * 0.8, 10),
-      naturalFitness: rng(q * 0.8, 8),
+      pace:           a('pace', 8),
+      acceleration:   a('acceleration', 8),
+      strength:       a('strength', 8),
+      stamina:        a('stamina', 6),
+      agility:        a('agility', 7),
+      balance:        a('balance', 7),
+      jumping:        a('jumping', 8),
+      naturalFitness: a('naturalFitness', 6),
     },
     goalkeeper: {
-      reflexes: rng(q * 0.95, 5),
-      handling: rng(q * 0.9, 5),
-      oneOnOnes: rng(q * 0.85, 8),
-      gkPositioning: rng(q * 0.9, 5),
-      aerialAbility: rng(q * 0.85, 8),
-      kicking: rng(q * 0.75, 10),
-      throwing: rng(q * 0.75, 10),
+      reflexes:      a('reflexes'),
+      handling:      a('handling'),
+      oneOnOnes:     a('oneOnOnes'),
+      gkPositioning: a('gkPositioning'),
+      aerialAbility: a('aerialAbility'),
+      kicking:       a('kicking'),
+      throwing:      a('throwing'),
+      communication: a('communication'),
+      sweeperAbility: a('sweeperAbility'),
     },
   };
 }
 
-function cbAttributes(quality: number): PlayerAttributes {
-  const q = quality;
+// ─── Hidden characteristics ───────────────────────────────────────────────────
+
+function generateHidden(quality: number): HiddenCharacteristics {
+  const hi = (mean: number, spread = 14) => clamp(gauss(mean, spread));
   return {
-    technical: {
-      passing: rng(q * 0.65, 10),
-      firstTouch: rng(q * 0.65, 10),
-      dribbling: rng(q * 0.4, 10),
-      finishing: rng(q * 0.25, 8),
-      crossing: rng(q * 0.35, 10),
-      tackling: rng(q * 0.92, 5),
-      marking: rng(q * 0.92, 5),
-      heading: rng(q * 0.88, 6),
-      longShots: rng(q * 0.3, 10),
-      technique: rng(q * 0.6, 10),
-    },
-    mental: {
-      decisions: rng(q * 0.85, 8),
-      vision: rng(q * 0.7, 8),
-      composure: rng(q * 0.82, 8),
-      concentration: rng(q * 0.9, 6),
-      anticipation: rng(q * 0.88, 6),
-      positioning: rng(q * 0.9, 6),
-      determination: rng(q * 0.85, 8),
-      workRate: rng(q * 0.82, 8),
-      teamwork: rng(q * 0.85, 8),
-      leadership: rng(q * 0.75, 12),
-      aggression: rng(q * 0.75, 12),
-    },
-    physical: {
-      pace: rng(q * 0.65, 14),
-      acceleration: rng(q * 0.65, 14),
-      strength: rng(q * 0.88, 8),
-      stamina: rng(q * 0.8, 10),
-      agility: rng(q * 0.65, 12),
-      balance: rng(q * 0.7, 10),
-      jumping: rng(q * 0.85, 8),
-      naturalFitness: rng(q * 0.82, 8),
-    },
-    goalkeeper: {
-      reflexes: rng(12, 5),
-      handling: rng(10, 5),
-      oneOnOnes: rng(8, 4),
-      gkPositioning: rng(10, 5),
-      aerialAbility: rng(12, 5),
-      kicking: rng(q * 0.5, 12),
-      throwing: rng(q * 0.4, 10),
-    },
+    professionalism:   hi(50 + quality * 0.2),
+    consistency:       hi(40 + quality * 0.25),
+    adaptability:      hi(55),
+    injuryProneness:   hi(35, 18),
+    ambition:          hi(55),
+    loyalty:           hi(50),
+    pressureHandling:  hi(45 + quality * 0.15),
+    learningSpeed:     hi(50),
+    bigMatchMentality: hi(45 + quality * 0.15),
   };
 }
 
-function fbAttributes(quality: number): PlayerAttributes {
-  const q = quality;
-  return {
-    technical: {
-      passing: rng(q * 0.75, 10),
-      firstTouch: rng(q * 0.75, 10),
-      dribbling: rng(q * 0.65, 10),
-      finishing: rng(q * 0.3, 10),
-      crossing: rng(q * 0.82, 8),
-      tackling: rng(q * 0.82, 8),
-      marking: rng(q * 0.8, 8),
-      heading: rng(q * 0.6, 12),
-      longShots: rng(q * 0.3, 10),
-      technique: rng(q * 0.72, 10),
-    },
-    mental: {
-      decisions: rng(q * 0.82, 8),
-      vision: rng(q * 0.75, 8),
-      composure: rng(q * 0.78, 8),
-      concentration: rng(q * 0.85, 6),
-      anticipation: rng(q * 0.82, 6),
-      positioning: rng(q * 0.85, 6),
-      determination: rng(q * 0.82, 10),
-      workRate: rng(q * 0.88, 8),
-      teamwork: rng(q * 0.85, 8),
-      leadership: rng(q * 0.65, 14),
-      aggression: rng(q * 0.7, 12),
-    },
-    physical: {
-      pace: rng(q * 0.82, 12),
-      acceleration: rng(q * 0.84, 10),
-      strength: rng(q * 0.72, 12),
-      stamina: rng(q * 0.88, 8),
-      agility: rng(q * 0.82, 10),
-      balance: rng(q * 0.8, 10),
-      jumping: rng(q * 0.68, 14),
-      naturalFitness: rng(q * 0.85, 8),
-    },
-    goalkeeper: {
-      reflexes: rng(10, 4),
-      handling: rng(8, 4),
-      oneOnOnes: rng(7, 3),
-      gkPositioning: rng(8, 4),
-      aerialAbility: rng(10, 4),
-      kicking: rng(q * 0.55, 12),
-      throwing: rng(q * 0.45, 10),
-    },
-  };
-}
-
-function dmAttributes(quality: number): PlayerAttributes {
-  const q = quality;
-  return {
-    technical: {
-      passing: rng(q * 0.82, 8),
-      firstTouch: rng(q * 0.8, 8),
-      dribbling: rng(q * 0.62, 12),
-      finishing: rng(q * 0.35, 10),
-      crossing: rng(q * 0.5, 12),
-      tackling: rng(q * 0.88, 6),
-      marking: rng(q * 0.85, 6),
-      heading: rng(q * 0.68, 12),
-      longShots: rng(q * 0.5, 12),
-      technique: rng(q * 0.75, 10),
-    },
-    mental: {
-      decisions: rng(q * 0.88, 6),
-      vision: rng(q * 0.8, 8),
-      composure: rng(q * 0.85, 6),
-      concentration: rng(q * 0.88, 6),
-      anticipation: rng(q * 0.88, 6),
-      positioning: rng(q * 0.88, 6),
-      determination: rng(q * 0.85, 8),
-      workRate: rng(q * 0.9, 6),
-      teamwork: rng(q * 0.88, 6),
-      leadership: rng(q * 0.72, 14),
-      aggression: rng(q * 0.75, 12),
-    },
-    physical: {
-      pace: rng(q * 0.7, 14),
-      acceleration: rng(q * 0.72, 12),
-      strength: rng(q * 0.82, 10),
-      stamina: rng(q * 0.9, 6),
-      agility: rng(q * 0.72, 12),
-      balance: rng(q * 0.75, 10),
-      jumping: rng(q * 0.75, 12),
-      naturalFitness: rng(q * 0.85, 8),
-    },
-    goalkeeper: {
-      reflexes: rng(8, 3),
-      handling: rng(7, 3),
-      oneOnOnes: rng(6, 3),
-      gkPositioning: rng(7, 3),
-      aerialAbility: rng(8, 3),
-      kicking: rng(q * 0.4, 12),
-      throwing: rng(q * 0.35, 10),
-    },
-  };
-}
-
-function cmAttributes(quality: number): PlayerAttributes {
-  const q = quality;
-  return {
-    technical: {
-      passing: rng(q * 0.88, 6),
-      firstTouch: rng(q * 0.85, 7),
-      dribbling: rng(q * 0.72, 10),
-      finishing: rng(q * 0.48, 12),
-      crossing: rng(q * 0.6, 12),
-      tackling: rng(q * 0.68, 12),
-      marking: rng(q * 0.62, 12),
-      heading: rng(q * 0.58, 14),
-      longShots: rng(q * 0.6, 12),
-      technique: rng(q * 0.85, 7),
-    },
-    mental: {
-      decisions: rng(q * 0.9, 6),
-      vision: rng(q * 0.88, 6),
-      composure: rng(q * 0.85, 8),
-      concentration: rng(q * 0.85, 8),
-      anticipation: rng(q * 0.85, 8),
-      positioning: rng(q * 0.8, 8),
-      determination: rng(q * 0.85, 8),
-      workRate: rng(q * 0.85, 8),
-      teamwork: rng(q * 0.88, 6),
-      leadership: rng(q * 0.72, 14),
-      aggression: rng(q * 0.62, 14),
-    },
-    physical: {
-      pace: rng(q * 0.72, 14),
-      acceleration: rng(q * 0.74, 12),
-      strength: rng(q * 0.72, 12),
-      stamina: rng(q * 0.88, 6),
-      agility: rng(q * 0.78, 10),
-      balance: rng(q * 0.78, 10),
-      jumping: rng(q * 0.68, 14),
-      naturalFitness: rng(q * 0.85, 8),
-    },
-    goalkeeper: { reflexes: rng(7, 3), handling: rng(6, 3), oneOnOnes: rng(5, 3), gkPositioning: rng(6, 3), aerialAbility: rng(7, 3), kicking: rng(q * 0.38, 12), throwing: rng(q * 0.32, 10) },
-  };
-}
-
-function amAttributes(quality: number): PlayerAttributes {
-  const q = quality;
-  return {
-    technical: {
-      passing: rng(q * 0.88, 6),
-      firstTouch: rng(q * 0.9, 5),
-      dribbling: rng(q * 0.85, 7),
-      finishing: rng(q * 0.65, 10),
-      crossing: rng(q * 0.65, 10),
-      tackling: rng(q * 0.45, 14),
-      marking: rng(q * 0.4, 14),
-      heading: rng(q * 0.45, 14),
-      longShots: rng(q * 0.7, 10),
-      technique: rng(q * 0.9, 5),
-    },
-    mental: {
-      decisions: rng(q * 0.88, 6),
-      vision: rng(q * 0.92, 5),
-      composure: rng(q * 0.85, 8),
-      concentration: rng(q * 0.8, 8),
-      anticipation: rng(q * 0.88, 6),
-      positioning: rng(q * 0.82, 8),
-      determination: rng(q * 0.82, 10),
-      workRate: rng(q * 0.78, 10),
-      teamwork: rng(q * 0.82, 8),
-      leadership: rng(q * 0.68, 14),
-      aggression: rng(q * 0.55, 14),
-    },
-    physical: {
-      pace: rng(q * 0.8, 12),
-      acceleration: rng(q * 0.82, 10),
-      strength: rng(q * 0.62, 14),
-      stamina: rng(q * 0.8, 10),
-      agility: rng(q * 0.85, 8),
-      balance: rng(q * 0.85, 8),
-      jumping: rng(q * 0.58, 16),
-      naturalFitness: rng(q * 0.82, 8),
-    },
-    goalkeeper: { reflexes: rng(6, 3), handling: rng(5, 3), oneOnOnes: rng(5, 3), gkPositioning: rng(5, 3), aerialAbility: rng(6, 3), kicking: rng(q * 0.35, 12), throwing: rng(q * 0.3, 10) },
-  };
-}
-
-function wAttributes(quality: number): PlayerAttributes {
-  const q = quality;
-  return {
-    technical: {
-      passing: rng(q * 0.78, 8),
-      firstTouch: rng(q * 0.85, 7),
-      dribbling: rng(q * 0.92, 5),
-      finishing: rng(q * 0.65, 10),
-      crossing: rng(q * 0.82, 8),
-      tackling: rng(q * 0.38, 14),
-      marking: rng(q * 0.32, 14),
-      heading: rng(q * 0.42, 14),
-      longShots: rng(q * 0.62, 12),
-      technique: rng(q * 0.88, 6),
-    },
-    mental: {
-      decisions: rng(q * 0.82, 8),
-      vision: rng(q * 0.85, 7),
-      composure: rng(q * 0.8, 10),
-      concentration: rng(q * 0.78, 10),
-      anticipation: rng(q * 0.85, 8),
-      positioning: rng(q * 0.78, 10),
-      determination: rng(q * 0.82, 10),
-      workRate: rng(q * 0.82, 10),
-      teamwork: rng(q * 0.78, 10),
-      leadership: rng(q * 0.62, 16),
-      aggression: rng(q * 0.55, 14),
-    },
-    physical: {
-      pace: rng(q * 0.92, 6),
-      acceleration: rng(q * 0.92, 6),
-      strength: rng(q * 0.6, 14),
-      stamina: rng(q * 0.82, 8),
-      agility: rng(q * 0.9, 6),
-      balance: rng(q * 0.88, 7),
-      jumping: rng(q * 0.55, 16),
-      naturalFitness: rng(q * 0.82, 8),
-    },
-    goalkeeper: { reflexes: rng(6, 3), handling: rng(5, 3), oneOnOnes: rng(5, 3), gkPositioning: rng(5, 3), aerialAbility: rng(6, 3), kicking: rng(q * 0.35, 12), throwing: rng(q * 0.3, 10) },
-  };
-}
-
-function stAttributes(quality: number): PlayerAttributes {
-  const q = quality;
-  return {
-    technical: {
-      passing: rng(q * 0.65, 12),
-      firstTouch: rng(q * 0.85, 7),
-      dribbling: rng(q * 0.75, 10),
-      finishing: rng(q * 0.95, 4),
-      crossing: rng(q * 0.45, 14),
-      tackling: rng(q * 0.32, 14),
-      marking: rng(q * 0.3, 14),
-      heading: rng(q * 0.75, 10),
-      longShots: rng(q * 0.68, 12),
-      technique: rng(q * 0.82, 8),
-    },
-    mental: {
-      decisions: rng(q * 0.85, 7),
-      vision: rng(q * 0.78, 10),
-      composure: rng(q * 0.88, 6),
-      concentration: rng(q * 0.8, 8),
-      anticipation: rng(q * 0.9, 5),
-      positioning: rng(q * 0.92, 5),
-      determination: rng(q * 0.88, 7),
-      workRate: rng(q * 0.78, 10),
-      teamwork: rng(q * 0.75, 12),
-      leadership: rng(q * 0.68, 14),
-      aggression: rng(q * 0.72, 12),
-    },
-    physical: {
-      pace: rng(q * 0.8, 12),
-      acceleration: rng(q * 0.82, 10),
-      strength: rng(q * 0.8, 10),
-      stamina: rng(q * 0.78, 12),
-      agility: rng(q * 0.78, 10),
-      balance: rng(q * 0.78, 10),
-      jumping: rng(q * 0.78, 10),
-      naturalFitness: rng(q * 0.82, 8),
-    },
-    goalkeeper: { reflexes: rng(6, 3), handling: rng(5, 3), oneOnOnes: rng(5, 3), gkPositioning: rng(5, 3), aerialAbility: rng(6, 3), kicking: rng(q * 0.35, 12), throwing: rng(q * 0.3, 10) },
-  };
-}
-
-// ─── Player factory ───────────────────────────────────────────────────────────
+// ─── Name pools ───────────────────────────────────────────────────────────────
 
 const NATIONALITIES = [
   'Valmorian', 'Keldorian', 'Stravian', 'Nordovian', 'Calderian',
@@ -405,6 +367,7 @@ const FIRST_NAMES = [
   'Glen','Hato','Igor','Jens','Klas','Lars','Marc','Nils','Otto','Paco',
   'Quinn','Rico','Samu','Tibo','Uwe','Vico','Wulf','Xavi','Yari','Zeno',
   'Adrian','Boris','Carlo','Davide','Enrico','Franco','Gianni','Hans','Ian','Josef',
+  'Karel','Lukas','Maren','Nevio','Pascal','Rokas','Simun','Taavi','Uldis','Vano',
 ];
 
 const LAST_NAMES = [
@@ -414,57 +377,66 @@ const LAST_NAMES = [
   'Müller','Bauer','Huber','Schneider','Zimmermann','Werner','Lehmann','Lang','Schulz','Braun',
   'Durand','Martin','Bernard','Thomas','Petit','Laurent','Simon','Michel','Lefebvre','Leroy',
   'Rossi','Romano','Esposito','Bianchi','Conti','De Luca','Mancini','Greco','Lombardi','Gallo',
+  'Karas','Novak','Vlcek','Blum','Krüger','Hartmann','Ritter','Kühn','Böhm','Schumacher',
 ];
 
 function randomName(): string {
   return `${FIRST_NAMES[Math.floor(Math.random() * FIRST_NAMES.length)]} ${LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)]}`;
 }
-
-function randomNationality(): string {
+function randomNat(): string {
   return NATIONALITIES[Math.floor(Math.random() * NATIONALITIES.length)];
 }
-
 function randomFoot(): Foot {
   const r = Math.random();
-  return r < 0.72 ? 'Right' : r < 0.94 ? 'Left' : 'Both';
+  return r < 0.70 ? 'Right' : r < 0.94 ? 'Left' : 'Both';
 }
 
-function randomAge(minAge: number, maxAge: number): { age: number; dob: string } {
-  const age = Math.floor(Math.random() * (maxAge - minAge + 1)) + minAge;
-  const today = new Date(2025, 6, 1); // game start date
-  const dob = new Date(today.getFullYear() - age, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1);
-  return { age, dob: dob.toISOString().split('T')[0] };
+// ─── Age distribution ─────────────────────────────────────────────────────────
+
+type AgeGroup = { min: number; max: number; weight: number };
+
+function pickAge(groups: AgeGroup[]): number {
+  const totalW = groups.reduce((s, g) => s + g.weight, 0);
+  let r = Math.random() * totalW;
+  for (const g of groups) {
+    r -= g.weight;
+    if (r <= 0) return Math.floor(Math.random() * (g.max - g.min + 1)) + g.min;
+  }
+  return groups[groups.length - 1].min;
 }
 
-function squadStatus(quality: number): SquadStatus {
-  if (quality >= 80) return 'Key Player';
-  if (quality >= 68) return 'First Team';
-  if (quality >= 55) return 'Rotation';
-  if (quality >= 42) return 'Squad Player';
-  return 'Reserve';
+// Age profile for a balanced realistic squad
+const STANDARD_AGE_GROUPS: AgeGroup[] = [
+  { min: 17, max: 19, weight: 0.12 },
+  { min: 20, max: 22, weight: 0.20 },
+  { min: 23, max: 26, weight: 0.30 },
+  { min: 27, max: 29, weight: 0.22 },
+  { min: 30, max: 33, weight: 0.12 },
+  { min: 34, max: 37, weight: 0.04 },
+];
+
+function ageToQualityAdj(age: number): number {
+  // Young players may be raw, peak at 24-28, veterans decline
+  if (age <= 18) return -12;
+  if (age <= 20) return -6;
+  if (age <= 23) return -2;
+  if (age <= 27) return 0;
+  if (age <= 30) return -3;
+  if (age <= 33) return -8;
+  return -16;
 }
 
-type AttrFn = (q: number) => PlayerAttributes;
+function makeDoB(age: number, referenceDate = '2025-07-01'): string {
+  const ref = new Date(referenceDate);
+  const birthYear = ref.getFullYear() - age;
+  const birthMonth = Math.floor(Math.random() * 12);
+  const birthDay = Math.floor(Math.random() * 28) + 1;
+  return new Date(birthYear, birthMonth, birthDay).toISOString().split('T')[0];
+}
 
-const ATTR_FN_MAP: Record<string, AttrFn> = {
-  GK: gkAttributes,
-  CB: cbAttributes,
-  LB: fbAttributes,
-  RB: fbAttributes,
-  LWB: fbAttributes,
-  RWB: fbAttributes,
-  DM: dmAttributes,
-  CM: cmAttributes,
-  LM: wAttributes,
-  RM: wAttributes,
-  AM: amAttributes,
-  LW: wAttributes,
-  RW: wAttributes,
-  ST: stAttributes,
-};
+// ─── Secondary positions ──────────────────────────────────────────────────────
 
-const SECONDARY_MAP: Record<Position, Position[]> = {
-  GK: [],
+const SECONDARY_MAP: Partial<Record<Position, Position[]>> = {
   CB: ['DM', 'LB', 'RB'],
   LB: ['CB', 'LWB', 'LM'],
   RB: ['CB', 'RWB', 'RM'],
@@ -472,101 +444,173 @@ const SECONDARY_MAP: Record<Position, Position[]> = {
   RWB: ['RB', 'RM', 'RW'],
   DM: ['CM', 'CB'],
   CM: ['DM', 'AM'],
-  LM: ['LW', 'LB', 'AM'],
-  RM: ['RW', 'RB', 'AM'],
-  AM: ['CM', 'ST'],
+  LM: ['LW', 'AM', 'LB'],
+  RM: ['RW', 'AM', 'RB'],
+  AM: ['CM', 'LW', 'RW'],
   LW: ['LM', 'AM', 'ST'],
   RW: ['RM', 'AM', 'ST'],
   ST: ['AM', 'LW', 'RW'],
 };
 
+// ─── Squad status from quality ────────────────────────────────────────────────
+
+function squadStatus(quality: number): SquadStatus {
+  if (quality >= 80) return 'Key Player';
+  if (quality >= 68) return 'First Team';
+  if (quality >= 55) return 'Rotation';
+  if (quality >= 42) return 'Squad Player';
+  if (quality >= 32) return 'Reserve';
+  return 'Youth';
+}
+
+// ─── Career stats seed ────────────────────────────────────────────────────────
+
+function seedCareerStats(pos: Position, age: number): CareerStats {
+  const careerLength = Math.max(0, age - 17);
+  const appsPerYear = pos === 'GK' ? 28 : 30;
+  const apps = Math.floor(careerLength * appsPerYear * (0.6 + Math.random() * 0.4));
+  const goalRate = pos === 'ST' ? 0.40 : ['LW','RW','AM'].includes(pos) ? 0.18 : pos === 'CM' ? 0.06 : 0.02;
+  const assistRate = ['AM','LW','RW','CM'].includes(pos) ? 0.22 : pos === 'ST' ? 0.12 : 0.05;
+  return {
+    appearances: apps,
+    goals: Math.floor(apps * goalRate * (0.5 + Math.random() * 1.0)),
+    assists: Math.floor(apps * assistRate * (0.5 + Math.random() * 1.0)),
+    yellowCards: Math.floor(apps * 0.08 * Math.random() * 2),
+    redCards: Math.floor(Math.random() * 3),
+    cleanSheets: pos === 'GK' ? Math.floor(apps * 0.30 * (0.5 + Math.random() * 1.0)) : 0,
+    averageRating: Math.round((6.0 + Math.random() * 2.0) * 10) / 10,
+    history: [],
+  };
+}
+
+// ─── Main player factory ──────────────────────────────────────────────────────
+
 export function makePlayer(
   pos: Position,
-  quality: number,
+  rawQuality: number,
   clubId: string,
-  wageMultiplier = 1,
+  clubReputation = 60,
+  ageOverride?: number,
 ): Player {
   const id = nextPlayerId();
-  const { age, dob } = randomAge(17, 35);
-  const potential = clamp(quality + Math.floor(Math.random() * 15) + (age < 23 ? 8 : 0));
-  const attrFn = ATTR_FN_MAP[pos] || cmAttributes;
-  const attrs = attrFn(quality);
-  const wage = Math.round((quality * quality * 0.4 + 500) * wageMultiplier);
+  const archetypePool = ARCHETYPES[pos] || ARCHETYPES.CM;
+  const archetype = archetypePool[Math.floor(Math.random() * archetypePool.length)];
+
+  const age = ageOverride ?? pickAge(STANDARD_AGE_GROUPS);
+  const quality = clamp(rawQuality + ageToQualityAdj(age), 15, 97);
+  const dob = makeDoB(age);
+
+  const attrs = buildAttrs(quality, archetype);
+  const hidden = generateHidden(quality);
+  const personality = derivePersonality(hidden);
+
+  const positionAbilities = calculateAllPositionAbilities(attrs);
+  const currentAbility = calculatePositionAbility(attrs, pos);
+  const potentialAbility = calculatePotentialAbility(currentAbility, age, hidden);
+
+  const rep = calculateReputation(currentAbility, age, clubReputation);
+  const devRate = calculateDevelopmentRate(hidden, age);
+
   const contractYears = Math.floor(Math.random() * 3) + 1;
-  const expiry = new Date(2025 + contractYears, 5, 30).toISOString().split('T')[0];
+  const expiryDate = new Date(2025 + contractYears, 5, 30).toISOString().split('T')[0];
+  const wage = Math.round((currentAbility * currentAbility * 0.35 + 400) * (clubReputation / 60));
+
   const secondaries: Position[] = [];
   const pool = SECONDARY_MAP[pos] || [];
-  if (pool.length > 0 && Math.random() > 0.35) {
+  if (pool.length > 0 && Math.random() > 0.38) {
     secondaries.push(pool[Math.floor(Math.random() * pool.length)]);
   }
-  const familiarity: Partial<Record<Position, number>> = { [pos]: 95 + Math.floor(Math.random() * 5) };
-  secondaries.forEach((sp) => { familiarity[sp] = 55 + Math.floor(Math.random() * 30); });
 
-  const careerStats: CareerStats = {
-    appearances: Math.floor(age * 2.5 + Math.random() * 20),
-    goals: pos === 'ST' ? Math.floor(Math.random() * 80 + 10) : pos === 'AM' || pos === 'LW' || pos === 'RW' ? Math.floor(Math.random() * 40) : Math.floor(Math.random() * 15),
-    assists: pos === 'AM' || pos === 'LW' || pos === 'RW' ? Math.floor(Math.random() * 50 + 5) : Math.floor(Math.random() * 25),
-    yellowCards: Math.floor(Math.random() * 30),
-    redCards: Math.floor(Math.random() * 4),
-    cleanSheets: pos === 'GK' ? Math.floor(Math.random() * 80 + 10) : 0,
-  };
+  const familiarity: Partial<Record<Position, number>> = { [pos]: clamp(90 + Math.floor(Math.random() * 10)) };
+  secondaries.forEach(sp => { familiarity[sp] = clamp(50 + Math.floor(Math.random() * 35)); });
 
-  return {
+  const player: Player = {
     id,
     name: randomName(),
     dateOfBirth: dob,
     age,
-    nationality: randomNationality(),
+    nationality: randomNat(),
     position: pos,
     secondaryPositions: secondaries,
     positionalFamiliarity: familiarity,
     attributes: attrs,
-    currentAbility: clamp(quality),
-    potentialAbility: clamp(potential),
+    currentAbility,
+    potentialAbility,
+    positionAbilities,
     preferredFoot: randomFoot(),
-    height: Math.floor(Math.random() * 30 + 165),
-    weight: Math.floor(Math.random() * 25 + 65),
+    height: Math.floor(gauss(178, 8)),
+    weight: Math.floor(gauss(75, 7)),
     contract: {
       wage,
-      expiryDate: expiry,
-      squadStatus: squadStatus(quality),
+      expiryDate,
+      squadStatus: squadStatus(currentAbility),
     },
-    morale: clamp(60 + Math.floor(Math.random() * 30)),
-    fitness: clamp(75 + Math.floor(Math.random() * 25)),
-    matchSharpness: clamp(50 + Math.floor(Math.random() * 40)),
-    reputation: clamp(quality * 0.85 + Math.random() * 15),
+    morale: clamp(gauss(72, 12)),
+    fitness: clamp(gauss(82, 10)),
+    matchSharpness: clamp(gauss(60, 15)),
+    reputation: rep,
+    marketValue: 0, // filled after player is constructed
     clubId,
-    isInjured: Math.random() < 0.06,
-    injuryDaysRemaining: undefined,
-    injuryType: undefined,
-    careerStats,
+    isInjured: Math.random() < 0.05,
+    hiddenCharacteristics: hidden,
+    preferences: {
+      preferredFoot: randomFoot(),
+      preferredRole: archetype.role,
+      prefersAttacking: ['ST','LW','RW','AM','LM','RM'].includes(pos),
+      prefersLargeClub: rep > 65,
+    },
+    personality,
+    developmentRate: devRate,
+    injuryProneness: hidden.injuryProneness,
+    careerStats: seedCareerStats(pos, age),
+    _v: 2,
   };
+
+  // Calculate market value now that the player object exists
+  player.marketValue = calculateMarketValue(player);
+  return player;
 }
 
-// Convenience squad builder
+// ─── Squad builder ────────────────────────────────────────────────────────────
+
+interface SlotDef { pos: Position; n: number; qAdj: number; ageGroup?: AgeGroup[] }
+
+const SQUAD_TEMPLATE: SlotDef[] = [
+  { pos: 'GK',  n: 2, qAdj: 0,   ageGroup: [{ min: 22, max: 34, weight: 1 }] },
+  { pos: 'CB',  n: 4, qAdj: 0 },
+  { pos: 'LB',  n: 2, qAdj: -3 },
+  { pos: 'RB',  n: 2, qAdj: -3 },
+  { pos: 'DM',  n: 2, qAdj: -2 },
+  { pos: 'CM',  n: 4, qAdj: 0 },
+  { pos: 'AM',  n: 2, qAdj: 2 },
+  { pos: 'LW',  n: 2, qAdj: 2 },
+  { pos: 'RW',  n: 2, qAdj: 2 },
+  { pos: 'ST',  n: 2, qAdj: 4 },
+];
+
 export function buildSquad(
   clubId: string,
   qualityBase: number,
   spread: number,
+  clubReputation = 60,
 ): { players: Player[]; playerIds: string[] } {
-  const q = (extra = 0) => clamp(qualityBase + extra + (Math.random() - 0.5) * spread * 2);
-  const roster: { pos: Position; n: number; qAdj: number }[] = [
-    { pos: 'GK', n: 2, qAdj: 0 },
-    { pos: 'CB', n: 4, qAdj: 0 },
-    { pos: 'LB', n: 2, qAdj: -2 },
-    { pos: 'RB', n: 2, qAdj: -2 },
-    { pos: 'DM', n: 2, qAdj: -2 },
-    { pos: 'CM', n: 4, qAdj: 0 },
-    { pos: 'AM', n: 2, qAdj: 2 },
-    { pos: 'LW', n: 2, qAdj: 2 },
-    { pos: 'RW', n: 2, qAdj: 2 },
-    { pos: 'ST', n: 2, qAdj: 4 },
-  ];
   const players: Player[] = [];
-  for (const { pos, n, qAdj } of roster) {
-    for (let i = 0; i < n; i++) {
-      players.push(makePlayer(pos, q(qAdj), clubId));
+
+  for (const slot of SQUAD_TEMPLATE) {
+    for (let i = 0; i < slot.n; i++) {
+      const q = clamp(qualityBase + slot.qAdj + (Math.random() - 0.5) * spread * 2);
+      const age = slot.ageGroup ? pickAge(slot.ageGroup) : undefined;
+      players.push(makePlayer(slot.pos, q, clubId, clubReputation, age));
     }
   }
-  return { players, playerIds: players.map((p) => p.id) };
+
+  // Occasionally add a gem: high PA but low CA youth player
+  if (Math.random() < 0.4) {
+    const gemPos: Position = (['CM','LW','ST','CB'] as Position[])[Math.floor(Math.random() * 4)];
+    const gemQ = clamp(qualityBase - 18 + Math.random() * 10);
+    const gemAge = 17 + Math.floor(Math.random() * 3);
+    players.push(makePlayer(gemPos, gemQ, clubId, clubReputation, gemAge));
+  }
+
+  return { players, playerIds: players.map(p => p.id) };
 }

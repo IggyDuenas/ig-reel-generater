@@ -2,16 +2,20 @@ import type { Player, LeagueTableEntry } from '../types';
 
 export function formatCurrency(amount: number): string {
   if (Math.abs(amount) >= 1_000_000) {
-    return `$${(amount / 1_000_000).toFixed(1)}M`;
+    return `₣${(amount / 1_000_000).toFixed(1)}M`;
   }
   if (Math.abs(amount) >= 1_000) {
-    return `$${(amount / 1_000).toFixed(0)}K`;
+    return `₣${(amount / 1_000).toFixed(0)}K`;
   }
-  return `$${amount.toFixed(0)}`;
+  return `₣${amount.toFixed(0)}`;
 }
 
 export function formatWage(wage: number): string {
-  return `$${wage.toLocaleString()}/wk`;
+  return `₣${wage.toLocaleString()}/wk`;
+}
+
+export function formatValsorian(amount: number): string {
+  return formatCurrency(amount);
 }
 
 export function formatDate(dateStr: string): string {

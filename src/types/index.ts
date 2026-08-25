@@ -11,6 +11,9 @@ export interface TechnicalAttributes {
   heading: number;
   longShots: number;
   technique: number;
+  freeKicks: number;
+  corners: number;
+  penalties: number;
 }
 
 export interface MentalAttributes {
@@ -25,6 +28,7 @@ export interface MentalAttributes {
   teamwork: number;
   leadership: number;
   aggression: number;
+  offTheBall: number;
 }
 
 export interface PhysicalAttributes {
@@ -46,6 +50,8 @@ export interface GoalkeeperAttributes {
   aerialAbility: number;
   kicking: number;
   throwing: number;
+  communication: number;
+  sweeperAbility: number;
 }
 
 export interface PlayerAttributes {
@@ -53,6 +59,90 @@ export interface PlayerAttributes {
   mental: MentalAttributes;
   physical: PhysicalAttributes;
   goalkeeper: GoalkeeperAttributes;
+}
+
+// ─── Hidden characteristics (not fully exposed to player) ────────────────────
+
+export interface HiddenCharacteristics {
+  professionalism: number;   // 1-100 — training dedication, punctuality
+  consistency: number;       // 1-100 — performance variance match-to-match
+  adaptability: number;      // 1-100 — how quickly they settle at new clubs
+  injuryProneness: number;   // 1-100 — susceptibility to injury (higher = more prone)
+  ambition: number;          // 1-100 — desire to win trophies and improve
+  loyalty: number;           // 1-100 — tendency to stay at a club
+  pressureHandling: number;  // 1-100 — performance in high-stakes situations
+  learningSpeed: number;     // 1-100 — how fast they develop from training
+  bigMatchMentality: number; // 1-100 — raises when match importance is high
+}
+
+// ─── Personality (derived from hidden characteristics) ───────────────────────
+
+export type PersonalityLabel =
+  | 'Professional'
+  | 'Driven'
+  | 'Ambitious'
+  | 'Determined'
+  | 'Balanced'
+  | 'Laid Back'
+  | 'Team Player'
+  | 'Competitive'
+  | 'Resolute'
+  | 'Maverick'
+  | 'Loyal';
+
+// ─── Preferred Role ───────────────────────────────────────────────────────────
+
+export type PreferredRole =
+  | 'Complete Forward'
+  | 'Poacher'
+  | 'Target Man'
+  | 'Deep-Lying Forward'
+  | 'Winger'
+  | 'Inside Forward'
+  | 'Advanced Playmaker'
+  | 'Deep-Lying Playmaker'
+  | 'Box-to-Box Midfielder'
+  | 'Ball-Winning Midfielder'
+  | 'Defensive Midfielder'
+  | 'Wide Midfielder'
+  | 'Attacking Full Back'
+  | 'Defensive Full Back'
+  | 'Ball-Playing Defender'
+  | 'No-Nonsense Defender'
+  | 'Sweeper Keeper'
+  | 'Traditional Goalkeeper';
+
+// ─── Player Preferences ───────────────────────────────────────────────────────
+
+export interface PlayerPreferences {
+  preferredFoot: Foot;
+  preferredRole: PreferredRole;
+  prefersAttacking: boolean;
+  prefersLargeClub: boolean;
+}
+
+// ─── Career History ───────────────────────────────────────────────────────────
+
+export interface CareerHistoryEntry {
+  clubId: string;
+  clubName: string;
+  seasonStart: string;
+  seasonEnd: string;
+  appearances: number;
+  goals: number;
+  assists: number;
+  averageRating: number;
+}
+
+export interface CareerStats {
+  appearances: number;
+  goals: number;
+  assists: number;
+  yellowCards: number;
+  redCards: number;
+  cleanSheets: number;
+  averageRating: number;
+  history: CareerHistoryEntry[];
 }
 
 // ─── Position Types ───────────────────────────────────────────────────────────
@@ -88,14 +178,10 @@ export type Foot = 'Right' | 'Left' | 'Both';
 // ─── Contract ─────────────────────────────────────────────────────────────────
 
 export interface Contract {
-  wage: number; // weekly wage in fictional currency units
-  expiryDate: string; // ISO date string
+  wage: number; // weekly wage in Valsorian Francs
+  expiryDate: string;
   squadStatus: SquadStatus;
-  bonuses?: {
-    appearance?: number;
-    goal?: number;
-    clean_sheet?: number;
-  };
+  bonuses?: { appearance?: number; goal?: number; clean_sheet?: number };
 }
 
 // ─── Player ───────────────────────────────────────────────────────────────────
@@ -103,37 +189,60 @@ export interface Contract {
 export interface Player {
   id: string;
   name: string;
-  dateOfBirth: string; // ISO date
+  dateOfBirth: string;
   age: number;
   nationality: string;
   position: Position;
   secondaryPositions: Position[];
   positionalFamiliarity: Partial<PositionalFamiliarity>;
   attributes: PlayerAttributes;
-  currentAbility: number; // 1-100
-  potentialAbility: number; // 1-100
+  currentAbility: number;      // derived: position-weighted attr score (1-100)
+  potentialAbility: number;    // ceiling under ideal development
+  positionAbilities: Partial<Record<Position, number>>; // CA per position
   preferredFoot: Foot;
-  height: number; // cm
-  weight: number; // kg
+  height: number;
+  weight: number;
   contract: Contract;
-  morale: number; // 0-100
-  fitness: number; // 0-100
-  matchSharpness: number; // 0-100
-  reputation: number; // 1-100
+  morale: number;
+  fitness: number;
+  matchSharpness: number;
+  reputation: number;
+  marketValue: number;         // in Valsorian Francs (₣)
   clubId: string;
   isInjured: boolean;
   injuryDaysRemaining?: number;
   injuryType?: string;
-  careerStats?: CareerStats;
+  hiddenCharacteristics: HiddenCharacteristics;
+  preferences: PlayerPreferences;
+  personality: PersonalityLabel;
+  developmentRate: number;     // hidden — used by future training system
+  injuryProneness: number;     // hidden — mirrors hidden.injuryProneness
+  careerStats: CareerStats;
+  // Step 1 compat — optional version marker
+  _v?: number;
 }
 
-export interface CareerStats {
-  appearances: number;
-  goals: number;
-  assists: number;
-  yellowCards: number;
-  redCards: number;
-  cleanSheets: number; // for GKs
+// ─── Club Identity ────────────────────────────────────────────────────────────
+
+export interface ClubIdentity {
+  tacticalPhilosophy: string;
+  squadBuildingPhilosophy: string;
+  youthFocus: number;            // 1-100
+  transferAggressiveness: number; // 1-100
+  financialStrength: number;     // 1-100
+}
+
+// ─── Squad Metrics (computed, not stored) ────────────────────────────────────
+
+export interface SquadMetrics {
+  averageAbility: number;
+  averagePotential: number;
+  averageAge: number;
+  squadDepth: number;
+  goalkeeperStrength: number;
+  defensiveStrength: number;
+  midfieldStrength: number;
+  attackingStrength: number;
 }
 
 // ─── Staff / Manager ──────────────────────────────────────────────────────────
@@ -164,16 +273,14 @@ export interface Club {
   city: string;
   stadium: string;
   stadiumCapacity: number;
-  reputation: number; // 1-100
-  colors: {
-    primary: string;
-    secondary: string;
-  };
+  reputation: number;
+  colors: { primary: string; secondary: string };
   finances: ClubFinances;
   manager: Manager;
   playerIds: string[];
   leagueId: string;
   facilities: Facilities;
+  identity: ClubIdentity;
 }
 
 export interface ClubFinances {
@@ -187,9 +294,9 @@ export interface ClubFinances {
 
 export interface Facilities {
   trainingGround: number; // 1-5
-  youthAcademy: number; // 1-5
-  stadium: number; // 1-5
-  medical: number; // 1-5
+  youthAcademy: number;
+  stadium: number;
+  medical: number;
 }
 
 // ─── League ───────────────────────────────────────────────────────────────────
@@ -212,7 +319,7 @@ export interface LeagueTableEntry {
   goalsAgainst: number;
   goalDifference: number;
   points: number;
-  form: MatchOutcome[]; // last 5
+  form: MatchOutcome[];
 }
 
 export type MatchOutcome = 'W' | 'D' | 'L';
@@ -224,7 +331,7 @@ export interface Fixture {
   leagueId: string;
   homeClubId: string;
   awayClubId: string;
-  date: string; // ISO date
+  date: string;
   played: boolean;
   result?: MatchResult;
 }
@@ -240,7 +347,7 @@ export interface MatchResult {
 
 export interface GameState {
   version: number;
-  currentDate: string; // ISO date
+  currentDate: string;
   season: string;
   playerClubId: string;
   clubs: Record<string, Club>;

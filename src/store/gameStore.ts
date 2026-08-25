@@ -2,8 +2,8 @@ import { useState, useCallback, useEffect } from 'react';
 import type { GameState, NavSection } from '../types';
 import { buildInitialWorld } from '../data/worldData';
 
-const SAVE_KEY = 'fm_game_save_v1';
-const SAVE_VERSION = 1;
+const SAVE_KEY = 'fm_game_save_v2';
+const SAVE_VERSION = 2;
 
 // ─── Persistence helpers ──────────────────────────────────────────────────────
 

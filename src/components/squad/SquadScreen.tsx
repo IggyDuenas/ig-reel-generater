@@ -7,6 +7,8 @@ interface Props {
   gameState: GameState;
   onSelectPlayer: (id: string) => void;
   selectedPlayerId: string | null;
+  comparePlayerId?: string | null;
+  onCompare?: (id: string) => void;
 }
 
 type SortKey = 'name' | 'age' | 'position' | 'currentAbility' | 'potentialAbility' | 'fitness' | 'morale' | 'wage';
@@ -47,7 +49,7 @@ function BarCell({ value, color }: { value: number; color: string }) {
   );
 }
 
-export default function SquadScreen({ gameState, onSelectPlayer, selectedPlayerId }: Props) {
+export default function SquadScreen({ gameState, onSelectPlayer, selectedPlayerId, comparePlayerId, onCompare }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>('currentAbility');
   const [sortDir, setSortDir] = useState<1 | -1>(-1);
   const [filterPos, setFilterPos] = useState<string>('All');
@@ -83,6 +85,11 @@ export default function SquadScreen({ gameState, onSelectPlayer, selectedPlayerI
         <span className="text-muted text-sm">{allPlayers.length} players</span>
       </div>
 
+      {comparePlayerId && (
+        <div className="cmp-hint text-sm" style={{ marginBottom: 10, padding: '8px 12px', background: 'var(--accent-dim)', borderRadius: 6, color: 'var(--accent)' }}>
+          Comparing: <strong>{gameState.players[comparePlayerId]?.name}</strong> — click another player to view comparison
+        </div>
+      )}
       <div className="squad-toolbar">
         <input
           type="text"
@@ -112,6 +119,7 @@ export default function SquadScreen({ gameState, onSelectPlayer, selectedPlayerI
               <th onClick={() => toggleSort('wage')}>Wage{sortIndicator('wage')}</th>
               <th>Contract</th>
               <th>Status</th>
+              {onCompare && <th>Cmp</th>}
             </tr>
           </thead>
           <tbody>
@@ -154,11 +162,23 @@ export default function SquadScreen({ gameState, onSelectPlayer, selectedPlayerI
                   <td>
                     <span className="badge badge-status">{p.contract.squadStatus}</span>
                   </td>
+                  {onCompare && (
+                    <td>
+                      <button
+                        className="btn-ghost"
+                        style={{ fontSize: '0.72rem', padding: '2px 6px', opacity: comparePlayerId === p.id ? 1 : 0.5 }}
+                        onClick={(e) => { e.stopPropagation(); onCompare(p.id); }}
+                        title="Compare player"
+                      >
+                        {comparePlayerId === p.id ? '★' : '⇄'}
+                      </button>
+                    </td>
+                  )}
                 </tr>
               );
             })}
             {filtered.length === 0 && (
-              <tr><td colSpan={10} style={{ textAlign: 'center', color: 'var(--txt-muted)', padding: 24 }}>No players found</td></tr>
+              <tr><td colSpan={onCompare ? 11 : 10} style={{ textAlign: 'center', color: 'var(--txt-muted)', padding: 24 }}>No players found</td></tr>
             )}
           </tbody>
         </table>

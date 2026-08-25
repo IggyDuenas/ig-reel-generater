@@ -1,4 +1,4 @@
-import type { Club, League, Player, Manager, GameState, LeagueTableEntry, Fixture, NewsItem } from '../types';
+import type { Club, League, Player, Manager, GameState, LeagueTableEntry, Fixture, NewsItem, ClubIdentity } from '../types';
 import { buildSquad } from './generators';
 
 // ─── League ───────────────────────────────────────────────────────────────────
@@ -54,6 +54,7 @@ interface ClubDef {
   managerFormation: string;
   qualityBase: number;
   qualitySpread: number;
+  identity: ClubIdentity;
 }
 
 const CLUB_DEFS: ClubDef[] = [
@@ -75,6 +76,7 @@ const CLUB_DEFS: ClubDef[] = [
     managerFormation: '4-3-3',
     qualityBase: 84,
     qualitySpread: 8,
+    identity: { tacticalPhilosophy: 'High Pressing', squadBuildingPhilosophy: 'Galáctico Recruitment', youthFocus: 35, transferAggressiveness: 85, financialStrength: 95 },
   },
   {
     id: 'club_solara',
@@ -94,6 +96,7 @@ const CLUB_DEFS: ClubDef[] = [
     managerFormation: '4-2-3-1',
     qualityBase: 86,
     qualitySpread: 7,
+    identity: { tacticalPhilosophy: 'Possession Football', squadBuildingPhilosophy: 'Balanced Approach', youthFocus: 45, transferAggressiveness: 75, financialStrength: 92 },
   },
   {
     id: 'club_redmoor',
@@ -113,6 +116,7 @@ const CLUB_DEFS: ClubDef[] = [
     managerFormation: '4-4-2',
     qualityBase: 74,
     qualitySpread: 9,
+    identity: { tacticalPhilosophy: 'Counter-Attack', squadBuildingPhilosophy: 'Balanced Recruitment', youthFocus: 55, transferAggressiveness: 55, financialStrength: 70 },
   },
   {
     id: 'club_velthorn',
@@ -132,6 +136,7 @@ const CLUB_DEFS: ClubDef[] = [
     managerFormation: '3-5-2',
     qualityBase: 70,
     qualitySpread: 10,
+    identity: { tacticalPhilosophy: 'Direct Play', squadBuildingPhilosophy: 'Youth Development', youthFocus: 75, transferAggressiveness: 45, financialStrength: 60 },
   },
   {
     id: 'club_portcrest',
@@ -151,6 +156,7 @@ const CLUB_DEFS: ClubDef[] = [
     managerFormation: '4-3-3',
     qualityBase: 64,
     qualitySpread: 10,
+    identity: { tacticalPhilosophy: 'Pragmatic Defence', squadBuildingPhilosophy: 'Experience & Stability', youthFocus: 40, transferAggressiveness: 50, financialStrength: 55 },
   },
   {
     id: 'club_greyvast',
@@ -170,6 +176,7 @@ const CLUB_DEFS: ClubDef[] = [
     managerFormation: '4-5-1',
     qualityBase: 58,
     qualitySpread: 11,
+    identity: { tacticalPhilosophy: 'Compact Defending', squadBuildingPhilosophy: 'Bargain Hunting', youthFocus: 60, transferAggressiveness: 40, financialStrength: 45 },
   },
   {
     id: 'club_dunmore',
@@ -189,6 +196,7 @@ const CLUB_DEFS: ClubDef[] = [
     managerFormation: '4-4-2',
     qualityBase: 53,
     qualitySpread: 12,
+    identity: { tacticalPhilosophy: 'Attacking Football', squadBuildingPhilosophy: 'Local Talent Focus', youthFocus: 70, transferAggressiveness: 35, financialStrength: 38 },
   },
   {
     id: 'club_fastbridge',
@@ -208,6 +216,7 @@ const CLUB_DEFS: ClubDef[] = [
     managerFormation: '5-3-2',
     qualityBase: 48,
     qualitySpread: 12,
+    identity: { tacticalPhilosophy: 'Defensive Block', squadBuildingPhilosophy: 'Survival First', youthFocus: 50, transferAggressiveness: 30, financialStrength: 30 },
   },
   {
     id: 'club_grenzburg',
@@ -227,6 +236,7 @@ const CLUB_DEFS: ClubDef[] = [
     managerFormation: '4-4-2',
     qualityBase: 43,
     qualitySpread: 12,
+    identity: { tacticalPhilosophy: 'Long Ball', squadBuildingPhilosophy: 'Free Transfers Only', youthFocus: 45, transferAggressiveness: 20, financialStrength: 22 },
   },
   {
     id: 'club_astorias',
@@ -246,6 +256,7 @@ const CLUB_DEFS: ClubDef[] = [
     managerFormation: '4-3-3',
     qualityBase: 38,
     qualitySpread: 11,
+    identity: { tacticalPhilosophy: 'Possession-Based', squadBuildingPhilosophy: 'Academy-First', youthFocus: 80, transferAggressiveness: 15, financialStrength: 18 },
   },
 ];
 
@@ -348,7 +359,7 @@ export function buildInitialWorld(playerClubId = 'club_redmoor'): GameState {
   LEAGUE.clubIds = clubIds;
 
   CLUB_DEFS.forEach((def) => {
-    const { players, playerIds } = buildSquad(def.id, def.qualityBase, def.qualitySpread);
+    const { players, playerIds } = buildSquad(def.id, def.qualityBase, def.qualitySpread, def.reputation);
     players.forEach((p) => { allPlayers[p.id] = p; });
 
     const weeklyWageBill = players.reduce((sum, p) => sum + p.contract.wage, 0);
@@ -379,6 +390,7 @@ export function buildInitialWorld(playerClubId = 'club_redmoor'): GameState {
         stadium: Math.round(def.capacity / 12000),
         medical: Math.round(def.reputation / 22),
       },
+      identity: def.identity,
     };
     allClubs[def.id] = club;
   });
@@ -387,7 +399,7 @@ export function buildInitialWorld(playerClubId = 'club_redmoor'): GameState {
   const leagueTable = initLeagueTable(clubIds);
 
   return {
-    version: 1,
+    version: 2,
     currentDate: '2025-07-01',
     season: '2025/26',
     playerClubId,

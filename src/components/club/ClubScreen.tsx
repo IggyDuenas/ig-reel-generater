@@ -1,5 +1,6 @@
 import type { GameState } from '../../types';
 import { formatCurrency, formatWage } from '../../utils';
+import { calculateSquadMetrics } from '../../utils/calculations';
 import './ClubScreen.css';
 
 interface Props {
@@ -27,6 +28,7 @@ export default function ClubScreen({ gameState, clubId, onSelectPlayer }: Props)
   const isMyClub = id === gameState.playerClubId;
   const squadPlayers = club.playerIds.map((pid) => gameState.players[pid]).filter(Boolean);
   const topPlayer = squadPlayers.reduce((best, p) => (p.currentAbility > best.currentAbility ? p : best), squadPlayers[0]);
+  const metrics = calculateSquadMetrics(squadPlayers);
 
   return (
     <div className="club-screen">
@@ -108,6 +110,32 @@ export default function ClubScreen({ gameState, clubId, onSelectPlayer }: Props)
             </div>
           </div>
 
+          {/* Squad metrics */}
+          <div className="card">
+            <h3 className="mb-12">Squad Metrics</h3>
+            <MetricRow label="Avg Ability" value={metrics.averageAbility} showBar />
+            <MetricRow label="Avg Potential" value={metrics.averagePotential} showBar />
+            <MetricRow label="GK Strength" value={metrics.goalkeeperStrength} showBar />
+            <MetricRow label="Defence" value={metrics.defensiveStrength} showBar />
+            <MetricRow label="Midfield" value={metrics.midfieldStrength} showBar />
+            <MetricRow label="Attack" value={metrics.attackingStrength} showBar />
+            <MetricRow label="Avg Age" value={metrics.averageAge} />
+          </div>
+
+          {/* Club identity */}
+          {club.identity && (
+            <div className="card">
+              <h3 className="mb-12">Club Identity</h3>
+              <InfoRow label="Philosophy" value={club.identity.tacticalPhilosophy} />
+              <InfoRow label="Recruitment" value={club.identity.squadBuildingPhilosophy} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10 }}>
+                <IdentityBar label="Youth Focus" value={club.identity.youthFocus} />
+                <IdentityBar label="Aggression" value={club.identity.transferAggressiveness} />
+                <IdentityBar label="Financial" value={club.identity.financialStrength} />
+              </div>
+            </div>
+          )}
+
           {/* Top player */}
           {topPlayer && (
             <div className="card">
@@ -165,6 +193,32 @@ function InfoRow({ label, value, highlight }: { label: string; value: string; hi
     <div className="info-row" style={{ borderBottom: '1px solid var(--border-soft)', padding: '8px 0', display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
       <span style={{ color: 'var(--txt-secondary)' }}>{label}</span>
       <span style={{ fontWeight: 600, color: highlight ? 'var(--accent)' : undefined }}>{value}</span>
+    </div>
+  );
+}
+
+function MetricRow({ label, value, showBar }: { label: string; value: number; showBar?: boolean }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--border-soft)', fontSize: '0.85rem' }}>
+      <span style={{ color: 'var(--txt-secondary)', width: 100, flexShrink: 0 }}>{label}</span>
+      {showBar && (
+        <div style={{ flex: 1, height: 6, background: 'var(--bg-base)', borderRadius: 3 }}>
+          <div style={{ width: `${value}%`, height: '100%', background: 'var(--accent)', borderRadius: 3 }} />
+        </div>
+      )}
+      <span style={{ fontWeight: 600, width: 32, textAlign: 'right' }}>{value}</span>
+    </div>
+  );
+}
+
+function IdentityBar({ label, value }: { label: string; value: number }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem' }}>
+      <span style={{ color: 'var(--txt-secondary)', width: 80, flexShrink: 0 }}>{label}</span>
+      <div style={{ flex: 1, height: 5, background: 'var(--bg-base)', borderRadius: 3 }}>
+        <div style={{ width: `${value}%`, height: '100%', background: 'var(--accent-dim)', borderRadius: 3 }} />
+      </div>
+      <span style={{ width: 28, textAlign: 'right', fontWeight: 600 }}>{value}</span>
     </div>
   );
 }

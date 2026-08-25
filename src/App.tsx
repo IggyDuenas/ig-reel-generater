@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useGame } from './store/gameStore';
 import StartScreen from './components/ui/StartScreen';
 import Sidebar from './components/layout/Sidebar';
@@ -5,6 +6,7 @@ import TopBar from './components/layout/TopBar';
 import Dashboard from './components/dashboard/Dashboard';
 import SquadScreen from './components/squad/SquadScreen';
 import PlayerProfile from './components/player/PlayerProfile';
+import PlayerComparison from './components/player/PlayerComparison';
 import ClubScreen from './components/club/ClubScreen';
 import MatchesScreen from './components/matches/MatchesScreen';
 import TransfersScreen from './components/transfers/TransfersScreen';
@@ -18,6 +20,8 @@ import './App.css';
 export default function App() {
   const game = useGame();
   const { gameState, activeSection, selectedPlayerId, selectedClubId, setActiveSection, selectPlayer, selectClub } = game;
+  const [comparePlayerId, setComparePlayerId] = useState<string | null>(null);
+  const [showComparison, setShowComparison] = useState(false);
 
   if (!gameState) {
     return <StartScreen game={game} />;
@@ -25,6 +29,18 @@ export default function App() {
 
   function handleSelectPlayer(id: string) {
     selectPlayer(id);
+    setShowComparison(false);
+  }
+
+  function handleComparePlayer(id: string) {
+    if (comparePlayerId && comparePlayerId !== id) {
+      // Second player selected — show comparison
+      selectPlayer(id);
+      setShowComparison(true);
+    } else {
+      setComparePlayerId(id === comparePlayerId ? null : id);
+      setShowComparison(false);
+    }
   }
 
   function handleSelectClub(id: string) {
@@ -33,8 +49,19 @@ export default function App() {
   }
 
   function renderSection() {
-    // Squad section: player profile takes priority if selected
-    if (activeSection === 'squad' && selectedPlayerId) {
+    // Squad section: comparison > profile > list
+    if (activeSection === 'squad' && showComparison && comparePlayerId && selectedPlayerId) {
+      return (
+        <PlayerComparison
+          gameState={gameState!}
+          playerAId={comparePlayerId}
+          playerBId={selectedPlayerId}
+          onClose={() => { setShowComparison(false); setComparePlayerId(null); selectPlayer(null); }}
+        />
+      );
+    }
+
+    if (activeSection === 'squad' && selectedPlayerId && !showComparison) {
       return (
         <PlayerProfile
           gameState={gameState!}
@@ -59,6 +86,8 @@ export default function App() {
             gameState={gameState!}
             onSelectPlayer={handleSelectPlayer}
             selectedPlayerId={selectedPlayerId}
+            comparePlayerId={comparePlayerId}
+            onCompare={handleComparePlayer}
           />
         );
       case 'tactics':
