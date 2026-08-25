@@ -1,0 +1,21 @@
+.squad-screen {
+  padding: 20px 24px;
+}
+
+.squad-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.player-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.inj-icon {
+  font-size: 0.85rem;
+}

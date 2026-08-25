@@ -1,0 +1,167 @@
+.player-profile {
+  padding: 16px 24px 40px;
+}
+
+.back-btn {
+  font-size: 0.82rem;
+  padding: 6px 10px;
+}
+
+.pp-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.pp-header-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.pp-pos-badge {
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.pp-header-main h1 {
+  font-size: 1.4rem;
+  line-height: 1.2;
+}
+
+.pp-sub-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: var(--txt-secondary);
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+.pp-sub-info .sep { color: var(--txt-muted); }
+
+.pp-header-stats {
+  display: flex;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+
+.pp-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pp-stat-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--txt-muted);
+}
+
+.pp-stat-val {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.pp-stat-val small {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--txt-secondary);
+}
+
+/* Attributes */
+.attrs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.attr-group {
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.attr-group h4 {
+  margin-bottom: 12px;
+}
+
+.attr-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.attr-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.attr-label {
+  width: 110px;
+  font-size: 0.82rem;
+  color: var(--txt-secondary);
+  flex-shrink: 0;
+}
+
+.attr-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.attr-bar-wrap .bar-track {
+  flex: 1;
+  width: auto;
+}
+
+.attr-val {
+  width: 26px;
+  text-align: right;
+  font-size: 0.82rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* Info rows */
+.info-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 0.85rem;
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  color: var(--txt-secondary);
+}
+
+.info-value {
+  font-weight: 600;
+  text-align: right;
+}

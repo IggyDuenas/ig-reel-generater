@@ -1,0 +1,304 @@
+/* ─── Reset & tokens ─────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* Palette */
+  --bg-base:        #0d0f14;
+  --bg-surface:     #13161d;
+  --bg-card:        #1a1e29;
+  --bg-raised:      #21273a;
+  --bg-hover:       #272d40;
+  --border:         #2a3048;
+  --border-soft:    #1e2438;
+
+  /* Text */
+  --txt-primary:    #e8eaf0;
+  --txt-secondary:  #8b93aa;
+  --txt-muted:      #5a6380;
+  --txt-accent:     #4e9eff;
+
+  /* Accent */
+  --accent:         #4e9eff;
+  --accent-hover:   #6baeff;
+  --accent-dim:     rgba(78,158,255,0.12);
+
+  /* Status colors */
+  --clr-elite:      #f5c842;
+  --clr-great:      #4caf7d;
+  --clr-good:       #4caf7d;
+  --clr-avg:        #e8a83a;
+  --clr-poor:       #e05252;
+
+  /* Nav */
+  --nav-width:      220px;
+  --header-h:       56px;
+
+  font-size: 14px;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  color: var(--txt-primary);
+  background: var(--bg-base);
+}
+
+body {
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ─── Scrollbar ──────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-base); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ─── Typography ─────────────────────────────────────────────────────────── */
+h1 { font-size: 1.6rem; font-weight: 700; }
+h2 { font-size: 1.2rem; font-weight: 600; }
+h3 { font-size: 1rem;   font-weight: 600; }
+h4 { font-size: 0.85rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--txt-secondary); }
+
+/* ─── Buttons ────────────────────────────────────────────────────────────── */
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: background 0.15s, opacity 0.15s;
+}
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  padding: 8px 16px;
+}
+.btn-primary:hover { background: var(--accent-hover); }
+
+.btn-secondary {
+  background: var(--bg-raised);
+  color: var(--txt-primary);
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+}
+.btn-secondary:hover { background: var(--bg-hover); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--txt-secondary);
+  padding: 6px 12px;
+}
+.btn-ghost:hover { color: var(--txt-primary); background: var(--bg-hover); }
+
+.btn-danger {
+  background: var(--clr-poor);
+  color: #fff;
+  padding: 8px 16px;
+}
+.btn-danger:hover { opacity: 0.85; }
+
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ─── Cards ──────────────────────────────────────────────────────────────── */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  padding: 16px;
+}
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+/* ─── Tables ─────────────────────────────────────────────────────────────── */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.data-table th {
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--txt-muted);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.data-table th:hover { color: var(--txt-secondary); }
+.data-table td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--border-soft);
+  vertical-align: middle;
+}
+.data-table tr:hover td { background: var(--bg-hover); cursor: pointer; }
+.data-table tr.selected td { background: var(--accent-dim); }
+
+/* ─── Progress bar ───────────────────────────────────────────────────────── */
+.bar-track {
+  background: var(--bg-raised);
+  border-radius: 4px;
+  height: 6px;
+  overflow: hidden;
+  width: 80px;
+  display: inline-block;
+  vertical-align: middle;
+}
+.bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s;
+}
+
+/* ─── Badges ─────────────────────────────────────────────────────────────── */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.badge-pos {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+.badge-status {
+  background: var(--bg-raised);
+  color: var(--txt-secondary);
+}
+
+/* ─── Form badge ─────────────────────────────────────────────────────────── */
+.form-dot {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-align: center;
+  line-height: 18px;
+  color: #fff;
+}
+.form-W { background: var(--clr-good); }
+.form-D { background: var(--clr-avg); }
+.form-L { background: var(--clr-poor); }
+
+/* ─── Section header ─────────────────────────────────────────────────────── */
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.section-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+/* ─── Tabs ───────────────────────────────────────────────────────────────── */
+.tab-bar {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+.tab-btn {
+  padding: 8px 16px;
+  background: none;
+  color: var(--txt-secondary);
+  border-radius: 6px 6px 0 0;
+  font-size: 0.85rem;
+}
+.tab-btn:hover { color: var(--txt-primary); background: var(--bg-hover); }
+.tab-btn.active {
+  color: var(--accent);
+  border-bottom: 2px solid var(--accent);
+  background: var(--accent-dim);
+}
+
+/* ─── Stat tile ──────────────────────────────────────────────────────────── */
+.stat-tile {
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.stat-tile-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--txt-muted);
+  margin-bottom: 6px;
+}
+.stat-tile-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+.stat-tile-sub {
+  font-size: 0.78rem;
+  color: var(--txt-secondary);
+  margin-top: 4px;
+}
+
+/* ─── Input ──────────────────────────────────────────────────────────────── */
+input, select {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--txt-primary);
+  font-family: inherit;
+  font-size: 0.85rem;
+  padding: 7px 10px;
+  outline: none;
+}
+input:focus, select:focus { border-color: var(--accent); }
+select option { background: var(--bg-card); }
+
+/* ─── Grid helpers ───────────────────────────────────────────────────────── */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+
+/* ─── Utility ────────────────────────────────────────────────────────────── */
+.flex { display: flex; }
+.flex-col { display: flex; flex-direction: column; }
+.gap-8  { gap: 8px; }
+.gap-12 { gap: 12px; }
+.gap-16 { gap: 16px; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.text-muted { color: var(--txt-secondary); }
+.text-dim   { color: var(--txt-muted); }
+.text-accent { color: var(--accent); }
+.text-sm  { font-size: 0.82rem; }
+.text-xs  { font-size: 0.72rem; }
+.mt-4  { margin-top: 4px; }
+.mt-8  { margin-top: 8px; }
+.mt-12 { margin-top: 12px; }
+.mt-16 { margin-top: 16px; }
+.mb-8  { margin-bottom: 8px; }
+.mb-12 { margin-bottom: 12px; }
+.mb-16 { margin-bottom: 16px; }
+.p-0 { padding: 0 !important; }
+.overflow-auto { overflow: auto; }
+.w-full { width: 100%; }
+.placeholder-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: var(--txt-muted);
+  text-align: center;
+  gap: 12px;
+}
+.placeholder-section .ph-icon { font-size: 3rem; opacity: 0.5; }
+.placeholder-section h3 { color: var(--txt-secondary); }
+.placeholder-section p { font-size: 0.85rem; max-width: 400px; }

@@ -1,0 +1,131 @@
+.dashboard {
+  padding: 20px 24px;
+  max-width: 1400px;
+}
+
+.dash-club-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.dash-crest {
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.8rem;
+  color: #fff;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+
+.dash-club-info h1 {
+  font-size: 1.4rem;
+}
+
+.dash-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: var(--txt-secondary);
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.dash-meta strong { color: var(--txt-primary); }
+.sep { color: var(--txt-muted); }
+
+.dash-grid {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 16px;
+}
+
+.dash-table-card { overflow: hidden; }
+
+.dash-right-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.next-fixture {
+  text-align: center;
+  padding: 8px 0;
+}
+
+.fixture-date {
+  font-size: 0.78rem;
+  color: var(--txt-muted);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.fixture-teams {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.vs-label {
+  font-size: 0.75rem;
+  color: var(--txt-muted);
+  font-weight: 400;
+}
+
+.fixture-venue {
+  margin-top: 6px;
+}
+
+.top-performer {
+  padding: 4px 0;
+}
+
+.tp-name {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.tp-info {
+  margin-top: 2px;
+}
+
+.finance-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+}
+
+.injury-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 3px 0;
+}
+
+.injury-row:hover { color: var(--txt-primary); }
+
+.news-item {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.news-item:last-child { border-bottom: none; }
+
+.news-headline {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 3px;
+  line-height: 1.3;
+}

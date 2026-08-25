@@ -1,0 +1,20 @@
+.matches-screen {
+  padding: 20px 24px;
+}
+
+.matches-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.score-display {
+  background: var(--bg-raised);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--txt-primary);
+}
+
+.mb-16 { margin-bottom: 16px; }

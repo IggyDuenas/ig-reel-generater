@@ -1,0 +1,86 @@
+.club-screen {
+  padding: 20px 24px;
+}
+
+.club-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.club-crest {
+  width: 68px;
+  height: 68px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 1rem;
+  color: #fff;
+  letter-spacing: 0.06em;
+  flex-shrink: 0;
+}
+
+.club-header-info h1 {
+  font-size: 1.5rem;
+}
+
+.club-sub {
+  margin-top: 4px;
+}
+
+.club-rep {
+  display: flex;
+  align-items: center;
+}
+
+.star-rating {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.club-content-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+}
+
+.club-squad-card {
+  grid-column: 1 / -1;
+}
+
+.manager-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.mgr-attributes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mgr-attr-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mgr-attr-row span:first-child {
+  width: 90px;
+  flex-shrink: 0;
+  text-transform: capitalize;
+}
+
+.mgr-attr-row .bar-track {
+  flex: 1;
+}
+
+.top-player-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+}
